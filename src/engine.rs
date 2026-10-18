@@ -9,6 +9,7 @@ enum Op {
     Neg,
     Sub,
     Div,
+    Sigmoid,
 }
 
 #[derive(Clone)]
@@ -84,7 +85,11 @@ impl Value {
             },
             Op::Div => {}
             Op::Neg => {}
-            Op::Sub => {}
+            Op::Sub => {},
+            Op::Sigmoid => {
+                let curr = &node.children[0];
+                curr.0.borrow_mut().grad += node.data * (1.0 - node.data) * out_grad;
+            }
         }
     } 
 
@@ -96,6 +101,13 @@ impl Value {
         Value::with_op(self.data().max(0.0), Op::Relu, vec![self.clone()])
     }
 
+    
+
+    pub fn sigmoid(&self) -> Value {
+        let s = 1.0 / (1.0 + (-self.data()).exp());
+        Value::with_op(s, Op::Sigmoid, vec![self.clone()])
+    }
+    
     fn build(v: &Value, visited: &mut HashSet<*const RefCell<Node>>, topology: &mut Vec<Value>) {
         if visited.insert(Rc::as_ptr(&v.0)) {
             for child in v.0.borrow().children.iter() {
@@ -131,7 +143,7 @@ impl Add for Value {
 impl Mul for Value {
     type Output = Value;
     fn mul(self, rhs: Value) -> Value {
-        let data = self.data() * rhs.data(); // `*`, not `+`
+        let data = self.data() * rhs.data();
         Value::with_op(data, Op::Mul, vec![self, rhs])
     }
 }
@@ -147,7 +159,7 @@ impl Mul<f32> for Value {
 impl Add<f32> for Value {
     type Output = Value;
     fn add(self, rhs: f32) -> Self::Output {
-        self * Value::new(rhs)
+        self + Value::new(rhs)
     }
 }
 
